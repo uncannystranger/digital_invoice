@@ -1,0 +1,6 @@
+{
+  "email": "admin@gmail.com",
+  "passwordHash": "pbkdf2:310000:digital-invoice-demo-salt-v1:1ef3eac85ad18bbbd2c1e6d3c5c2c7d01ccf7ffbf5471dff0c944303776c7c13",
+  "role": "admin",
+  "createdAt": "2026-09-14T06:28:50.072Z"
+}

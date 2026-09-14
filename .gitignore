@@ -1,0 +1,18 @@
+node_modules/
+dist/
+data/
+.env
+.env.*
+!.env.example
+artifacts/
+output/
+coverage/
+.vercel/
+.DS_Store
+*.log
+*.pdf
+*.sqlite*
+*.tgz
+
+# Local developer account instructions; never publish credentials.
+DEVELOPMENT-README.md

@@ -1,0 +1,40 @@
+{
+  "name": "digital-invoice",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "start": "vite preview --host 127.0.0.1",
+    "test": "node --test tests/local.test.js tests/auth.test.js",
+    "test:browser": "node output/playwright/verify.mjs",
+    "test:legacy": "node --test tests/core.test.js",
+    "test:auth": "node output/playwright/auth-verify.mjs"
+  },
+  "dependencies": {
+    "@fontsource/dm-sans": "^5.3.0",
+    "@fontsource/manrope": "^5.3.0",
+    "better-sqlite3": "^13.0.3",
+    "decimal.js": "^10.6.0",
+    "express": "^5.2.1",
+    "helmet": "^8.3.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
+    "lucide-react": "^0.577.0",
+    "motion": "^12.36.0",
+    "nodemailer": "^10.0.9",
+    "pdfkit": "^0.20.2",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-router-dom": "^7.18.3",
+    "sharp": "^0.35.4",
+    "zod": "^4.6.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "concurrently": "^10.0.5",
+    "fake-indexeddb": "^6.2.5",
+    "prettier": "^3.9.6",
+    "vite": "^7.3.1"
+  }
+}
