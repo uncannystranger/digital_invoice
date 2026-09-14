@@ -16,3 +16,4 @@ coverage/
 
 # Local developer account instructions; never publish credentials.
 DEVELOPMENT-README.md
+.vercel
