@@ -1,0 +1,13 @@
+{
+  "name": "Digital Invoice",
+  "short_name": "Digital Invoice",
+  "lang": "so",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#171919",
+  "theme_color": "#171919",
+  "icons": [
+    { "src": "/qaansheeg-mark.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

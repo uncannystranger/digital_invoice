@@ -128,25 +128,18 @@ export function Status({ status }) {
   );
 }
 export function NumberValue({ value, currency }) {
-  const [v, setV] = useState(value),
-    reduce = useReducedMotion();
-  useEffect(() => {
-    if (reduce) {
-      setV(value);
-      return;
-    }
-    let start, frame;
-    const from = v;
-    const tick = (time) => {
-      start ??= time;
-      const p = Math.min((time - start) / 650, 1);
-      setV(Math.round(from + (value - from) * (1 - (1 - p) ** 3)));
-      if (p < 1) frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [value, reduce]);
-  return currency ? formatMoney(v, currency) : v.toLocaleString();
+  const reduce = useReducedMotion();
+  return (
+    <motion.span
+      key={value}
+      initial={reduce ? false : { opacity: 0.55, y: 2 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18 }}
+      style={{ display: "inline-block", fontVariantNumeric: "tabular-nums" }}
+    >
+      {currency ? formatMoney(value, currency) : value.toLocaleString()}
+    </motion.span>
+  );
 }
 
 export function Field({ label, error, children, className = "", ...props }) {

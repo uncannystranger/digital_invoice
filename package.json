@@ -6,7 +6,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "start": "vite preview --host 127.0.0.1",
-    "test": "node --test tests/local.test.js tests/auth.test.js",
+    "test": "node --test tests/local.test.js tests/auth.test.js tests/foundation.test.js",
     "test:browser": "node output/playwright/verify.mjs",
     "test:legacy": "node --test tests/core.test.js",
     "test:auth": "node output/playwright/auth-verify.mjs"

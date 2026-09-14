@@ -34,6 +34,8 @@ import {
   Copy,
   Pencil,
   X,
+  Upload,
+  HardDrive,
 } from "lucide-react";
 import { repository } from "./repository";
 import { calculate, formatMoney, today } from "../shared/finance";
@@ -53,11 +55,19 @@ import Document from "./Document";
 import { downloadInvoice, printInvoice, invoicePdf } from "./pdf";
 import "./style.css";
 import "./premium.css";
+import "./cinematic.css";
 import FloatingCreate from "./FloatingCreate";
 import { buttonMotion, pointerLight, snappy } from "./interaction";
 const MotionLink = motion.create(Link);
 import { AuthProvider, AuthGate } from "./Auth.jsx";
 import { ToastProvider, useToast, Profile, CommandPalette } from "./Feedback";
+if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+  window.addEventListener(
+    "load",
+    () => navigator.serviceWorker.register("/sw.js").catch(() => {}),
+    { once: true },
+  );
+}
 const Context = createContext();
 const useData = () => useContext(Context);
 const dates = (d) => {
@@ -81,6 +91,8 @@ function TransitionLink({ to, transitionName, children, ...props }) {
         : {})}
       {...props}
       onClick={(event) => {
+        props.onClick?.(event);
+        if (event.defaultPrevented) return;
         if (
           !document.startViewTransition ||
           window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
@@ -92,7 +104,12 @@ function TransitionLink({ to, transitionName, children, ...props }) {
         )
           return;
         event.preventDefault();
-        const source = event.currentTarget;
+        const source =
+          transitionName === "invoice-focus"
+            ? event.currentTarget
+                .closest(".selected-document")
+                ?.querySelector(".invoice-paper") || event.currentTarget
+            : event.currentTarget;
         source.style.viewTransitionName = transitionName;
         const transition = document.startViewTransition(() =>
           flushSync(() => navigate(to)),
@@ -114,7 +131,7 @@ function CreateLink() {
       to="/qaansheegyo/cusub"
     >
       <Plus size={20} />
-      Samee Qaansheeg
+      Qaansheeg
     </TransitionLink>
   );
 }
@@ -196,14 +213,30 @@ function optimizeLogo(file) {
     reader.readAsDataURL(file);
   });
 }
-function InvoiceRows({ invoices }) {
+function InvoiceRows({ invoices, selectedId, onSelect }) {
   return (
     <div className="invoice-list">
       {invoices.map((i) => (
         <motion.div layout key={i.id}>
           <TransitionLink
             transitionName="invoice-focus"
-            className="invoice-row"
+            className={
+              "invoice-row" + (selectedId === i.id ? " is-selected" : "")
+            }
+            onClick={
+              onSelect
+                ? (event) => {
+                    if (
+                      window.matchMedia("(min-width: 1100px)").matches &&
+                      !event.metaKey &&
+                      !event.ctrlKey
+                    ) {
+                      event.preventDefault();
+                      onSelect(i.id);
+                    }
+                  }
+                : undefined
+            }
             to={"/qaansheegyo/" + i.id}
           >
             <Avatar name={i.customerSnapshot.name} />
@@ -226,7 +259,8 @@ function InvoiceRows({ invoices }) {
 function Invoices() {
   const { data } = useData();
   const [q, setQ] = useState(""),
-    [filter, setFilter] = useState("all");
+    [filter, setFilter] = useState("all"),
+    [selectedId, setSelectedId] = useState(null);
   if (!data.invoices.length)
     return (
       <>
@@ -252,6 +286,7 @@ function Invoices() {
         .toLowerCase()
         .includes(q.toLowerCase()),
   );
+  const selected = rows.find((i) => i.id === selectedId) || rows[0];
   return (
     <>
       <Heading
@@ -289,60 +324,110 @@ function Invoices() {
           </button>
         ))}
       </div>
-      <div className="list-tools">
-        <SearchField
-          value={q}
-          onChange={setQ}
-          placeholder="Raadi qaansheeg ama macmiil..."
-        />
-        <span className="record-count">
-          <QuietCount value={rows.length} /> qaansheeg
-        </span>
-      </div>
-      <div className="filters" aria-label="Shaandhee qaansheegyada">
-        {[
-          ["all", "Dhammaan"],
-          ["draft", "Qabyo"],
-          ["sent", "La diray"],
-          ["paid", "La bixiyey"],
-          ["partial", "Qayb laga bixiyey"],
-          ["overdue", "Daahay"],
-        ].map(([key, label]) => (
-          <button
-            key={key}
-            aria-pressed={filter === key}
-            className={filter === key ? "selected" : ""}
-            onClick={() => setFilter(key)}
+      <div className="invoice-workspace">
+        <section className="invoice-browser" aria-label="Qaansheegyada">
+          <div className="list-tools">
+            <SearchField
+              value={q}
+              onChange={setQ}
+              placeholder="Raadi qaansheeg ama macmiil..."
+            />
+            <span className="record-count">
+              <QuietCount value={rows.length} /> qaansheeg
+            </span>
+          </div>
+          <div className="filters" aria-label="Shaandhee qaansheegyada">
+            {[
+              ["all", "Dhammaan"],
+              ["draft", "Qabyo"],
+              ["sent", "La diray"],
+              ["paid", "La bixiyey"],
+              ["partial", "Qayb laga bixiyey"],
+              ["overdue", "Daahay"],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                aria-pressed={filter === key}
+                className={filter === key ? "selected" : ""}
+                onClick={() => setFilter(key)}
+              >
+                {filter === key && (
+                  <motion.span
+                    className="filter-active"
+                    layoutId="filter-active"
+                    transition={snappy}
+                  />
+                )}
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
+          {rows.length ? (
+            <InvoiceRows
+              invoices={rows}
+              selectedId={selected?.id}
+              onSelect={setSelectedId}
+            />
+          ) : (
+            <div className="empty">
+              <FileText size={42} />
+              <h2>
+                {data.invoices.length
+                  ? "Waxba lama helin."
+                  : "Weli qaansheeg ma lihid."}
+              </h2>
+              <p>
+                {data.invoices.length
+                  ? "Isku day raadin kale."
+                  : "Samee qaansheeggaaga ugu horreeya."}
+              </p>
+              {!data.invoices.length && <CreateLink />}
+            </div>
+          )}
+        </section>
+        {selected && (
+          <aside
+            className="selected-document"
+            aria-label="Qaansheegga la doortay"
           >
-            {filter === key && (
-              <motion.span
-                className="filter-active"
-                layoutId="filter-active"
-                transition={snappy}
+            <div className="document-toolbar">
+              <div>
+                <span>HORUDHAC</span>
+                <strong>{selected.number}</strong>
+              </div>
+              <TransitionLink
+                className="button secondary"
+                to={"/qaansheegyo/" + selected.id}
+                transitionName="invoice-focus"
+              >
+                Fur qaansheegga <ArrowUpRight size={18} />
+              </TransitionLink>
+            </div>
+            <motion.div
+              key={selected.id}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.22 }}
+            >
+              <Document
+                invoice={{ ...selected, businessSnapshot: data.settings }}
               />
-            )}
-            <span>{label}</span>
-          </button>
-        ))}
+            </motion.div>
+            <div className="document-context">
+              <Status status={selected.status} />
+              <span>
+                Hadhaaga{" "}
+                <strong>
+                  {formatMoney(
+                    selected.total - selected.paid,
+                    selected.currency,
+                  )}
+                </strong>
+              </span>
+            </div>
+          </aside>
+        )}
       </div>
-      {rows.length ? (
-        <InvoiceRows invoices={rows} />
-      ) : (
-        <div className="empty">
-          <FileText size={42} />
-          <h2>
-            {data.invoices.length
-              ? "Waxba lama helin."
-              : "Weli qaansheeg ma lihid."}
-          </h2>
-          <p>
-            {data.invoices.length
-              ? "Isku day raadin kale."
-              : "Samee qaansheeggaaga ugu horreeya."}
-          </p>
-          {!data.invoices.length && <CreateLink />}
-        </div>
-      )}
       <p className="local-note">
         <span />
         Xogtu waxay ku kaydsan tahay browser-kan. Diiwaannada bilowga ahi waa
@@ -520,7 +605,7 @@ function CustomerDetail() {
           to={"/qaansheegyo/cusub?customer=" + c.id}
         >
           <Plus size={20} />
-          Samee Qaansheeg
+          Qaansheeg
         </Link>
       </div>
       <InvoiceRows
@@ -1043,7 +1128,9 @@ function Detail() {
             </div>
             <div>
               <dt>La bixiyey</dt>
-              <dd>{formatMoney(i.paid, i.currency)}</dd>
+              <dd>
+                <NumberValue value={i.paid} currency={i.currency} />
+              </dd>
             </div>
           </dl>
           <div className="balance">
@@ -1163,6 +1250,34 @@ function Detail() {
           <div className="send-options">
             <Button
               variant="secondary"
+              onClick={() =>
+                act(async () => {
+                  await navigator.clipboard.writeText(
+                    `${i.number} · ${i.customerSnapshot.name}\nWadarta: ${formatMoney(i.total, i.currency)}\nHadhaaga: ${formatMoney(i.total - i.paid, i.currency)}`,
+                  );
+                  notify("Koobidda waa la koobiyeeyey.");
+                })
+              }
+            >
+              <Copy size={20} />
+              Koobi koobidda
+            </Button>
+            <a
+              className="button secondary"
+              target="_blank"
+              rel="noopener noreferrer"
+              href={
+                "https://wa.me/?text=" +
+                encodeURIComponent(
+                  `${i.number} · ${i.customerSnapshot.name}\nWadarta: ${formatMoney(i.total, i.currency)}\nHadhaaga: ${formatMoney(i.total - i.paid, i.currency)}`,
+                )
+              }
+            >
+              <Send size={20} />
+              WhatsApp
+            </a>
+            <Button
+              variant="secondary"
               onClick={() => act(() => downloadInvoice(displayInvoice))}
             >
               <Download size={20} />
@@ -1211,7 +1326,23 @@ function SettingsPage() {
   const [f, setF] = useState(structuredClone(data.settings)),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
-    [saved, setSaved] = useState(false);
+    [saved, setSaved] = useState(false),
+    [backup, setBackup] = useState(null),
+    [resetOpen, setResetOpen] = useState(false),
+    [sampleBusy, setSampleBusy] = useState(false);
+  const downloadBackup = async () => {
+    const payload = await repository.backup();
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob),
+      a = document.createElement("a");
+    a.href = url;
+    a.download = `digital-invoice-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    notify("Kaydka waa la soo dejiyey.");
+  };
   const set = (key, value) => {
     setF((f) => ({ ...f, [key]: value }));
     setSaved(false);
@@ -1410,6 +1541,124 @@ function SettingsPage() {
           </Button>
         </div>
       </form>
+      <section className="settings-section storage-section">
+        <div>
+          <h2>Xogta &amp; Kaydka</h2>
+          <p>Ku kaydsan qalabkan. Kaydso nuqul si aad xogta u soo ceshato.</p>
+        </div>
+        <div className="storage-actions">
+          <Button variant="secondary" onClick={downloadBackup}>
+            <Download size={18} /> Soo dejiso kayd
+          </Button>
+          <label className="button secondary size-md">
+            <Upload size={18} /> Soo celi kayd
+            <input
+              hidden
+              type="file"
+              accept="application/json"
+              onChange={async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                try {
+                  const parsed = JSON.parse(await file.text());
+                  setBackup(parsed);
+                } catch {
+                  setError("Faylka kaydka lama akhrin karin.");
+                }
+                e.target.value = "";
+              }}
+            />
+          </label>
+          <Button variant="ghost" onClick={() => setResetOpen(true)}>
+            <Trash2 size={18} /> Tirtir xogta
+          </Button>
+          <Button
+            variant="ghost"
+            disabled={sampleBusy}
+            onClick={async () => {
+              setSampleBusy(true);
+              try {
+                const r = await repository.removeSampleData();
+                await reload();
+                notify(`${r.invoices} qaansheeg tusaale ah waa laga saaray.`);
+              } catch (e) {
+                setError(e.message);
+              } finally {
+                setSampleBusy(false);
+              }
+            }}
+          >
+            <HardDrive size={18} /> Ka saar xogta tusaalaha
+          </Button>
+        </div>
+      </section>
+      {backup && (
+        <Modal title="Soo celi xogtan?" onClose={() => setBackup(null)}>
+          <p>
+            {backup.invoices?.length || 0} qaansheeg ·{" "}
+            {backup.customers?.length || 0} macmiil ·{" "}
+            {backup.payments?.length || 0} lacag-bixin
+          </p>
+          <div className="modal-actions">
+            <Button variant="secondary" onClick={() => setBackup(null)}>
+              Ka noqo
+            </Button>
+            <Button
+              onClick={async () => {
+                try {
+                  await repository.importBackup(backup);
+                  await reload();
+                  setBackup(null);
+                  notify("Xogta waa la soo celiyey.");
+                } catch (e) {
+                  setError(e.message);
+                  setBackup(null);
+                }
+              }}
+            >
+              Soo celi
+            </Button>
+          </div>
+        </Modal>
+      )}
+      {resetOpen && (
+        <Modal title="Tirtir xogta?" onClose={() => setResetOpen(false)}>
+          <p>
+            Falkan dib looma celin karo. Qor <strong>TIRTIR</strong> si aad u
+            xaqiijiso.
+          </p>
+          <Field label="Xaqiiji">
+            <input
+              autoFocus
+              onChange={(e) =>
+                e.currentTarget.form?.setAttribute(
+                  "data-confirm",
+                  e.target.value,
+                )
+              }
+            />
+          </Field>
+          <div className="modal-actions">
+            <Button variant="secondary" onClick={() => setResetOpen(false)}>
+              Ka noqo
+            </Button>
+            <Button
+              variant="danger"
+              onClick={async (e) => {
+                const input = e.currentTarget
+                  .closest(".modal")
+                  ?.querySelector("input");
+                if (input?.value !== "TIRTIR") return;
+                await repository.resetData();
+                setResetOpen(false);
+                window.location.reload();
+              }}
+            >
+              Tirtir
+            </Button>
+          </div>
+        </Modal>
+      )}
     </>
   );
 }
@@ -1430,7 +1679,16 @@ function Shell() {
     ["/dejinta", "Dejinta", Settings],
   ];
   return (
-    <div className={"app" + (showCreate ? " has-create-action" : "")}>
+    <div
+      className={
+        "app" +
+        (showCreate ? " has-create-action" : "") +
+        (/^\/qaansheegyo\/[^/]+$/.test(loc.pathname) && showCreate
+          ? " is-invoice-detail"
+          : "")
+      }
+      style={{ "--accent": data.settings.accent || "#287883" }}
+    >
       <CommandPalette />
       <aside className="sidebar">
         <Link to="/qaansheegyo" className="brand-link">
@@ -1526,6 +1784,26 @@ function Shell() {
     </div>
   );
 }
+class AppErrorBoundary extends React.Component {
+  state = { error: null };
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  render() {
+    if (this.state.error)
+      return (
+        <div className="boot">
+          <Brand />
+          <h1>Waxbaa khaldamay.</h1>
+          <p>Fadlan bogga dib u soo cusboonaysii.</p>
+          <Button onClick={() => window.location.reload()}>
+            Mar kale isku day
+          </Button>
+        </div>
+      );
+    return this.props.children;
+  }
+}
 function App() {
   const [data, setData] = useState(null),
     [error, setError] = useState("");
@@ -1582,4 +1860,8 @@ function App() {
     </MotionConfig>
   );
 }
-createRoot(document.getElementById("root")).render(<App />);
+createRoot(document.getElementById("root")).render(
+  <AppErrorBoundary>
+    <App />
+  </AppErrorBoundary>,
+);

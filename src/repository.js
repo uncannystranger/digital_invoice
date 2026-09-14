@@ -1,5 +1,7 @@
 import { calculate, statusOf, today } from "../shared/finance.js";
 const stores = ["settings", "customers", "invoices", "payments", "meta"];
+const DB_NAME = "qaansheeg-local";
+const DB_VERSION = 2;
 let connection;
 const channel =
   typeof window !== "undefined" && "BroadcastChannel" in window
@@ -13,9 +15,17 @@ const request = (r) =>
 async function db() {
   if (!connection)
     connection = new Promise((resolve, reject) => {
-      const r = indexedDB.open("qaansheeg-local", 1);
-      r.onupgradeneeded = () =>
-        stores.forEach((s) => r.result.createObjectStore(s, { keyPath: "id" }));
+      const r = indexedDB.open(DB_NAME, DB_VERSION);
+      r.onupgradeneeded = (event) => {
+        const d = r.result;
+        stores.forEach((s) => {
+          if (!d.objectStoreNames.contains(s)) d.createObjectStore(s, { keyPath: "id" });
+        });
+        if (event.oldVersion < 2) {
+          const meta = event.target.transaction.objectStore("meta");
+          meta.put({ id: "schema", version: DB_VERSION, migratedAt: new Date().toISOString() });
+        }
+      };
       r.onsuccess = () => resolve(r.result);
       r.onerror = () => reject(r.error);
     });
@@ -179,6 +189,44 @@ export const repository = {
       payments,
     };
   },
+  async backup() {
+    const d = await db();
+    const tx = d.transaction(stores, "readonly");
+    const read = (s) => request(tx.objectStore(s).getAll());
+    const [settings, customers, invoices, payments, meta] = await Promise.all(stores.map(read));
+    return { app: "Digital Invoice", version: 1, exportedAt: new Date().toISOString(), settings: settings[0] || null, customers, invoices, payments, meta };
+  },
+  async removeSampleData() {
+    return transaction(["customers", "invoices", "payments"], async (tx) => {
+      const [customers, invoices, payments] = await Promise.all(["customers", "invoices", "payments"].map((s) => request(tx.objectStore(s).getAll())));
+      const ids = new Set(invoices.filter((i) => i.sample).map((i) => i.id));
+      customers.filter((c) => c.sample).forEach((c) => tx.objectStore("customers").delete(c.id));
+      invoices.filter((i) => i.sample).forEach((i) => tx.objectStore("invoices").delete(i.id));
+      payments.filter((p) => ids.has(p.invoiceId)).forEach((p) => tx.objectStore("payments").delete(p.id));
+      return { customers: customers.filter((c) => c.sample).length, invoices: ids.size };
+    });
+  },
+  async importBackup(payload) {
+    const data = validateBackup(payload);
+    return transaction(stores, async (tx) => {
+      stores.forEach((s) => tx.objectStore(s).clear());
+      tx.objectStore("settings").put(data.settings);
+      data.customers.forEach((x) => tx.objectStore("customers").put(x));
+      data.invoices.forEach((x) => tx.objectStore("invoices").put(x));
+      data.payments.forEach((x) => tx.objectStore("payments").put(x));
+      data.meta.forEach((x) => tx.objectStore("meta").put(x));
+      return data;
+    });
+  },
+  async resetData() {
+    return transaction(stores, async (tx) => {
+      stores.forEach((s) => tx.objectStore(s).clear());
+      tx.objectStore("settings").put(structuredClone(defaults));
+      tx.objectStore("meta").put({ id: "schema", version: DB_VERSION });
+      tx.objectStore("meta").put({ id: "seed", version: DB_VERSION, cleared: true });
+      tx.objectStore("meta").put({ id: "number", value: 0 });
+    });
+  },
   async put(store, value) {
     return transaction([store], (tx) => {
       tx.objectStore(store).put(value);
@@ -274,3 +322,15 @@ export const repository = {
     });
   },
 };
+
+export function validateBackup(payload) {
+  if (!payload || payload.app !== "Digital Invoice" || payload.version !== 1 || !Array.isArray(payload.customers) || !Array.isArray(payload.invoices) || !Array.isArray(payload.payments) || !Array.isArray(payload.meta) || !payload.settings?.id)
+    throw new Error("Kaydkan ma saxna ama noociisa lama taageero.");
+  const ids = new Set(payload.customers.map((x) => x.id));
+  if (payload.invoices.some((x) => !x.id || !x.number || !ids.has(x.customerId) || !["USD", "SOS"].includes(x.currency)))
+    throw new Error("Qaansheeg ama macmiil ka mid ah kaydka ma saxna.");
+  const invoiceIds = new Set(payload.invoices.map((x) => x.id));
+  if (payload.payments.some((x) => !x.id || !invoiceIds.has(x.invoiceId) || !Number.isFinite(x.amount) || x.amount <= 0))
+    throw new Error("Lacag-bixin ka mid ah kaydka ma saxna.");
+  return payload;
+}

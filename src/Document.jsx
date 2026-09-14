@@ -21,6 +21,29 @@ function BusinessMark({ business }) {
   );
 }
 export default function Document({ invoice, compact = false, transitionName }) {
+  const frame = React.useRef(null),
+    paper = React.useRef(null);
+  const [geometry, setGeometry] = React.useState({
+    scale: 1,
+    height: undefined,
+  });
+  React.useLayoutEffect(() => {
+    const update = () => {
+      if (!frame.current || !paper.current) return;
+      const width = frame.current.clientWidth;
+      if (!width) return;
+      const scale = Math.min(1, width / 650);
+      const height = scale < 1 ? paper.current.offsetHeight * scale : undefined;
+      setGeometry((old) =>
+        old.scale === scale && old.height === height ? old : { scale, height },
+      );
+    };
+    const observer = new ResizeObserver(update);
+    observer.observe(frame.current);
+    observer.observe(paper.current);
+    update();
+    return () => observer.disconnect();
+  }, []);
   const b = invoice.businessSnapshot || {},
     c = invoice.customerSnapshot || {};
   let totals;
@@ -32,180 +55,200 @@ export default function Document({ invoice, compact = false, transitionName }) {
   const currency = invoice.currency || "USD",
     paid = invoice.paid || 0;
   return (
-    <article
-      className={`invoice-paper ${compact ? "mini-paper" : ""} ${b.style === "minimal" ? "minimal-paper" : ""}`}
-      style={{
-        "--document-accent": b.accent || "#086b8a",
-        viewTransitionName: transitionName,
-      }}
-      aria-label="Hordhaca qaansheegga"
+    <div
+      className="document-viewport"
+      ref={frame}
+      style={{ height: geometry.height }}
     >
-      <div className="paper-top">
-        <div className="paper-business">
-          <BusinessMark business={b} />
-          <div>
-            <strong>{b.name || "Magaca ganacsiga"}</strong>
-            <small>{[b.city, b.country].filter(Boolean).join(" · ")}</small>
+      <article
+        ref={paper}
+        className={`invoice-paper ${compact ? "mini-paper" : ""} ${b.style === "minimal" ? "minimal-paper" : ""}`}
+        style={{
+          "--document-accent": b.accent || "#086b8a",
+          width: geometry.scale < 1 ? 650 : "100%",
+          transform:
+            geometry.scale < 1 ? `scale(${geometry.scale})` : undefined,
+          transformOrigin: "top left",
+          viewTransitionName: transitionName,
+        }}
+        aria-label="Hordhaca qaansheegga"
+      >
+        <div className="paper-top">
+          <div className="paper-business">
+            <motion.span
+              key={b.logo || "monogram"}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.18 }}
+            >
+              <BusinessMark business={b} />
+            </motion.span>
+            <div>
+              <strong>{b.name || "Magaca ganacsiga"}</strong>
+              <small>{[b.city, b.country].filter(Boolean).join(" · ")}</small>
+            </div>
+          </div>
+          <div className="paper-type">
+            QAANSHEEG
+            <span>{invoice.number || "Qabyo"}</span>
           </div>
         </div>
-        <div className="paper-type">
-          QAANSHEEG
-          <span>{invoice.number || "Qabyo"}</span>
+        <div className="paper-address">
+          {[b.address, b.phone, b.email, b.website].filter(Boolean).join(" · ")}
         </div>
-      </div>
-      <div className="paper-address">
-        {[b.address, b.phone, b.email, b.website].filter(Boolean).join(" · ")}
-      </div>
-      <div className="paper-billing">
-        <div>
-          <small>Ku socota</small>
-          <motion.h3
-            key={c.name}
-            initial={{ opacity: 0.5, y: 2 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            {c.name || "Dooro macmiil"}
-          </motion.h3>
-          <p>
-            {[c.contact, c.address, c.city, c.phone, c.email]
-              .filter(Boolean)
-              .map((v, n) => (
-                <React.Fragment key={n}>
-                  {v}
-                  <br />
-                </React.Fragment>
-              ))}
-          </p>
-        </div>
-        <dl>
+        <div className="paper-billing">
           <div>
-            <dt>Taariikh</dt>
-            <dd>{dateLabel(invoice.issue)}</dd>
-          </div>
-          <div>
-            <dt>Taariikhda bixinta</dt>
-            <dd>{dateLabel(invoice.due)}</dd>
-          </div>
-          <div>
-            <dt>Lacagta</dt>
-            <dd>{currency}</dd>
-          </div>
-        </dl>
-      </div>
-      <table className="paper-table">
-        <thead>
-          <tr>
-            <th>Sharaxaad</th>
-            <th>Tirada</th>
-            <th>Qiimaha</th>
-            <th>Wadarta</th>
-          </tr>
-        </thead>
-        <tbody>
-          <AnimatePresence initial={false}>
-            {invoice.items.map((item, n) => (
-              <motion.tr
-                layout
-                key={item.id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              >
-                <td>{item.description || "Sharaxaadda shayga"}</td>
-                <td>{item.quantity}</td>
-                <td>
-                  {formatMoney(
-                    Math.round(Number(item.price || 0) * 100),
-                    currency,
-                  )}
-                </td>
-                <td>{formatMoney(totals.lines[n] || 0, currency)}</td>
-              </motion.tr>
-            ))}
-          </AnimatePresence>
-        </tbody>
-      </table>
-      <div className="paper-totals">
-        {[
-          ["Wadarta Hoose", totals.subtotal],
-          ["Dhimis", -totals.discount],
-          ["Canshuur", totals.tax],
-          ["Wadarta Guud", totals.total],
-          ["La bixiyey", paid],
-          ["Hadhaaga", totals.total - paid],
-        ].map(([label, n], i) => (
-          <div
-            className={i === 5 ? "paper-balance" : i === 3 ? "paper-grand" : ""}
-            key={label}
-          >
-            <span>{label}</span>
-            <motion.strong
-              initial={{ opacity: 0.45, y: 2 }}
+            <small>Ku socota</small>
+            <motion.h3
+              key={c.name}
+              initial={{ opacity: 0.5, y: 2 }}
               animate={{ opacity: 1, y: 0 }}
             >
-              <NumberValue value={n} currency={currency} />
-            </motion.strong>
+              {c.name || "Dooro macmiil"}
+            </motion.h3>
+            <p>
+              {[c.contact, c.address, c.city, c.phone, c.email]
+                .filter(Boolean)
+                .map((v, n) => (
+                  <React.Fragment key={n}>
+                    {v}
+                    <br />
+                  </React.Fragment>
+                ))}
+            </p>
           </div>
-        ))}
-      </div>
-      <div className="paper-bottom">
-        {b.methods?.some(
-          (m) => m.enabled && invoice.paymentMethods?.includes(m.name),
-        ) && (
-          <div className="paper-block">
-            <small>Habka lacag-bixinta</small>
-            {b.methods
-              .filter(
-                (m) => m.enabled && invoice.paymentMethods?.includes(m.name),
-              )
-              .map((m) => (
-                <p key={m.name}>
-                  <strong>
-                    {m.name === "Cash"
-                      ? "Lacag caddaan ah"
-                      : m.name === "Bank Transfer"
-                        ? "Xawaalad bangi"
-                        : m.name}
-                  </strong>{" "}
-                  · {m.details}
-                </p>
-              ))}
-          </div>
-        )}
-        {invoice.notes && (
-          <div className="paper-block">
-            <small>Qoraal</small>
-            <p>{invoice.notes}</p>
-          </div>
-        )}
-        {invoice.terms && (
-          <div className="paper-block">
-            <small>Shuruudaha</small>
-            <p>{invoice.terms}</p>
-          </div>
-        )}
-        {invoice.signature && (
-          <div className="paper-signature">
-            {invoice.signature}
-            <small>Saxiixa</small>
-          </div>
-        )}
-        {(b.registration || b.taxNumber) && (
-          <p className="paper-registration">
-            {b.registration && `Diiwaangelinta: ${b.registration}`}{" "}
-            {b.taxNumber && `Canshuurta: ${b.taxNumber}`}
-          </p>
-        )}
-      </div>
-      <div className="paper-footer">
-        <span>{b.footer || ""}</span>
-        <Brand />
-      </div>
-      {invoice.sample && (
-        <div className="paper-sample">
-          TUSAALE KELIYA · Xiriir ganacsi lama sheeganayo
+          <dl>
+            <div>
+              <dt>Taariikh</dt>
+              <dd>{dateLabel(invoice.issue)}</dd>
+            </div>
+            <div>
+              <dt>Taariikhda bixinta</dt>
+              <dd>{dateLabel(invoice.due)}</dd>
+            </div>
+            <div>
+              <dt>Lacagta</dt>
+              <dd>{currency}</dd>
+            </div>
+          </dl>
         </div>
-      )}
-    </article>
+        <table className="paper-table">
+          <thead>
+            <tr>
+              <th>Sharaxaad</th>
+              <th>Tirada</th>
+              <th>Qiimaha</th>
+              <th>Wadarta</th>
+            </tr>
+          </thead>
+          <tbody>
+            <AnimatePresence initial={false}>
+              {invoice.items.map((item, n) => (
+                <motion.tr
+                  layout
+                  key={item.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <td>{item.description || "Sharaxaadda shayga"}</td>
+                  <td>{item.quantity}</td>
+                  <td>
+                    {formatMoney(
+                      Math.round(Number(item.price || 0) * 100),
+                      currency,
+                    )}
+                  </td>
+                  <td>{formatMoney(totals.lines[n] || 0, currency)}</td>
+                </motion.tr>
+              ))}
+            </AnimatePresence>
+          </tbody>
+        </table>
+        <div className="paper-totals">
+          {[
+            ["Wadarta Hoose", totals.subtotal],
+            ["Dhimis", -totals.discount],
+            ["Canshuur", totals.tax],
+            ["Wadarta Guud", totals.total],
+            ["La bixiyey", paid],
+            ["Hadhaaga", totals.total - paid],
+          ].map(([label, n], i) => (
+            <div
+              className={
+                i === 5 ? "paper-balance" : i === 3 ? "paper-grand" : ""
+              }
+              key={label}
+            >
+              <span>{label}</span>
+              <motion.strong
+                initial={{ opacity: 0.45, y: 2 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <NumberValue value={n} currency={currency} />
+              </motion.strong>
+            </div>
+          ))}
+        </div>
+        <div className="paper-bottom">
+          {b.methods?.some(
+            (m) => m.enabled && invoice.paymentMethods?.includes(m.name),
+          ) && (
+            <div className="paper-block">
+              <small>Habka lacag-bixinta</small>
+              {b.methods
+                .filter(
+                  (m) => m.enabled && invoice.paymentMethods?.includes(m.name),
+                )
+                .map((m) => (
+                  <p key={m.name}>
+                    <strong>
+                      {m.name === "Cash"
+                        ? "Lacag caddaan ah"
+                        : m.name === "Bank Transfer"
+                          ? "Xawaalad bangi"
+                          : m.name}
+                    </strong>{" "}
+                    · {m.details}
+                  </p>
+                ))}
+            </div>
+          )}
+          {invoice.notes && (
+            <div className="paper-block">
+              <small>Qoraal</small>
+              <p>{invoice.notes}</p>
+            </div>
+          )}
+          {invoice.terms && (
+            <div className="paper-block">
+              <small>Shuruudaha</small>
+              <p>{invoice.terms}</p>
+            </div>
+          )}
+          {invoice.signature && (
+            <div className="paper-signature">
+              {invoice.signature}
+              <small>Saxiixa</small>
+            </div>
+          )}
+          {(b.registration || b.taxNumber) && (
+            <p className="paper-registration">
+              {b.registration && `Diiwaangelinta: ${b.registration}`}{" "}
+              {b.taxNumber && `Canshuurta: ${b.taxNumber}`}
+            </p>
+          )}
+        </div>
+        <div className="paper-footer">
+          <span>{b.footer || ""}</span>
+          <Brand />
+        </div>
+        {invoice.sample && (
+          <div className="paper-sample">
+            TUSAALE KELIYA · Xiriir ganacsi lama sheeganayo
+          </div>
+        )}
+      </article>
+    </div>
   );
 }
