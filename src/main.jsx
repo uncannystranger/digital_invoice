@@ -59,6 +59,28 @@ import "./cinematic.css";
 import FloatingCreate from "./FloatingCreate";
 import { buttonMotion, pointerLight, snappy } from "./interaction";
 const MotionLink = motion.create(Link);
+function useVisibleViewport() {
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const sync = () => {
+      const covered = viewport ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop) : 0;
+      document.documentElement.style.setProperty("--invoice-keyboard-inset", `${covered}px`);
+      document.documentElement.style.setProperty("--invoice-visible-height", `${viewport?.height || window.innerHeight}px`);
+    };
+    sync();
+    viewport?.addEventListener("resize", sync);
+    viewport?.addEventListener("scroll", sync);
+    window.addEventListener("resize", sync);
+    return () => {
+      viewport?.removeEventListener("resize", sync);
+      viewport?.removeEventListener("scroll", sync);
+      window.removeEventListener("resize", sync);
+      document.documentElement.style.removeProperty("--invoice-keyboard-inset");
+      document.documentElement.style.removeProperty("--invoice-visible-height");
+    };
+  }, []);
+}
+
 import { AuthProvider, AuthGate } from "./Auth.jsx";
 import { ToastProvider, useToast, Profile, CommandPalette } from "./Feedback";
 if (typeof window !== "undefined" && "serviceWorker" in navigator) {
@@ -237,6 +259,8 @@ function InvoiceRows({ invoices, selectedId, onSelect }) {
                   }
                 : undefined
             }
+            aria-current={selectedId === i.id ? "true" : undefined}
+            aria-controls="invoice-preview"
             to={"/qaansheegyo/" + i.id}
           >
             <Avatar name={i.customerSnapshot.name} />
@@ -332,7 +356,7 @@ function Invoices() {
               onChange={setQ}
               placeholder="Raadi qaansheeg ama macmiil..."
             />
-            <span className="record-count">
+            <span className="record-count" role="status" aria-live="polite">
               <QuietCount value={rows.length} /> qaansheeg
             </span>
           </div>
@@ -381,19 +405,21 @@ function Invoices() {
                   ? "Isku day raadin kale."
                   : "Samee qaansheeggaaga ugu horreeya."}
               </p>
+              {data.invoices.length > 0 && <Button variant="secondary" onClick={() => { setQ(""); setFilter("all"); }}>Ka saar shaandhaynta</Button>}
               {!data.invoices.length && <CreateLink />}
             </div>
           )}
         </section>
         {selected && (
           <aside
+            id="invoice-preview"
             className="selected-document"
             aria-label="Qaansheegga la doortay"
           >
             <div className="document-toolbar">
               <div>
                 <span>HORUDHAC</span>
-                <strong>{selected.number}</strong>
+                <strong role="status" aria-live="polite" aria-atomic="true">{selected.number}</strong>
               </div>
               <TransitionLink
                 className="button secondary"
@@ -760,14 +786,18 @@ function Editor() {
       <Heading title={old ? "Wax ka beddel" : "Qaansheeg Cusub"}>
         <span className="composer-caption">{old?.number || "Qabyo cusub"}</span>
       </Heading>
-      <div className="mobile-tabs">
+      <div className="mobile-tabs" role="group" aria-label="Qaabka qaansheegga">
         <button
+          aria-pressed={tab === "edit"}
+          aria-controls="invoice-editor"
           className={tab === "edit" ? "selected" : ""}
           onClick={() => setTab("edit")}
         >
           Wax ka beddel
         </button>
         <button
+          aria-pressed={tab === "preview"}
+          aria-controls="invoice-composer-preview"
           className={tab === "preview" ? "selected" : ""}
           onClick={() => setTab("preview")}
         >
@@ -775,7 +805,7 @@ function Editor() {
         </button>
       </div>
       <form onSubmit={save} className={"composer show-" + tab}>
-        <section className="editor">
+        <section id="invoice-editor" className="editor">
           <ErrorBox error={error} />
           <div className="editor-section">
             <h2>Macmiilka</h2>
@@ -978,7 +1008,7 @@ function Editor() {
             </Button>
           </div>
         </section>
-        <section className="preview-panel">
+        <section id="invoice-composer-preview" className="preview-panel">
           <div className="preview-label">
             <span>Horudhac</span>
             <span>A4 · {f.currency}</span>
@@ -1805,6 +1835,7 @@ class AppErrorBoundary extends React.Component {
   }
 }
 function App() {
+  useVisibleViewport();
   const [data, setData] = useState(null),
     [error, setError] = useState("");
   const reload = async () => {

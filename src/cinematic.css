@@ -1041,3 +1041,21 @@ textarea {
     width: 100% !important;
   }
 }
+
+/* Final invoice browser treatment. Awwwards: Envato hierarchy + Bodak form fill. */
+.invoice-browser .invoice-row { min-height:76px; padding:14px 12px; transform:none; transition:background-color 160ms ease, border-color 160ms ease; }
+.invoice-browser .invoice-row:hover, .invoice-browser .invoice-row:active { transform:none; box-shadow:none; }
+.invoice-browser .invoice-row:focus-visible { outline:2px solid #bccdb2; outline-offset:-2px; background:#2d3830; }
+.invoice-browser .invoice-row .row-amount { font-variant-numeric:tabular-nums; }
+.invoice-browser .invoice-row:hover .avatar { transform:none; }
+.preview-panel, .selected-document { min-width:0; }
+.mobile-tabs button { min-height:44px; }
+@media(max-width:800px) {
+  .composer { padding-bottom:calc(120px + env(safe-area-inset-bottom)); }
+  .composer .save-bar { position:fixed; left:22px; right:22px; bottom:calc(76px + env(safe-area-inset-bottom) + var(--invoice-keyboard-inset,0px)); z-index:18; padding:12px; background:#202a23f2; border:1px solid #ffffff18; border-radius:12px; backdrop-filter:blur(12px); }
+  .composer .save-bar .button { min-height:44px; }
+  .composer input, .composer textarea, .composer select { scroll-margin-block:100px; }
+  .modal { max-height:calc(var(--invoice-visible-height,100dvh) - 32px); }
+  .invoice-browser .invoice-row { min-height:84px; padding:16px 10px; }
+}
+@media(prefers-reduced-motion:reduce) { .invoice-browser .invoice-row { transition:none; } }
