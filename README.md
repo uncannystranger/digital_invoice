@@ -1,3 +1,5 @@
+> **Latest release: v1.1.0** — [Release notes](RELEASE-NOTES.md) · [GitHub release](https://github.com/uncannystranger/digital_invoice/releases/tag/v1.1.0)
+
 <div align="center">
   <img src="docs/digital-invoice-banner.svg" alt="Digital Invoice" width="900" />
   <h1>Digital Invoice</h1>

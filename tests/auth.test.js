@@ -8,9 +8,9 @@ global.localStorage = {
   getItem: (k) => store.get(k) ?? null,
   removeItem: (k) => store.delete(k),
 };
-const setup = fs.readFileSync("DEVELOPMENT-README.md", "utf8");
-const email = setup.match(/Email:\n([^\n]+)/)[1],
-  password = setup.match(/Password:\n([^\n]+)/)[1];
+const setup = fs.readFileSync("README.md", "utf8");
+const email = setup.match(/Email: `([^`]+)`/)[1],
+  password = setup.match(/Password: `([^`]+)`/)[1];
 test("Local auth hashing, persistence, expiry, logout isolation and redirect validation", async () => {
   assert.equal(await authAdapter.restoreSession(), null);
   assert.equal(await authAdapter.login(email, "wrong"), null);
