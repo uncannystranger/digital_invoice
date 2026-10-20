@@ -348,7 +348,7 @@ function Invoices() {
           </button>
         ))}
       </div>
-      <div className="invoice-workspace">
+      <div className="invoice-workspace finance-workspace">
         <section className="invoice-browser" aria-label="Qaansheegyada">
           <div className="list-tools">
             <SearchField
@@ -386,6 +386,7 @@ function Invoices() {
               </button>
             ))}
           </div>
+          <div className="invoice-browser-heading"><span>DIWAANKA QAANSHEEGYADA</span><span>{filter === "all" ? "Dhammaan" : "La shaandheeyey"}</span></div>
           {rows.length ? (
             <InvoiceRows
               invoices={rows}
@@ -429,11 +430,13 @@ function Invoices() {
                 Fur qaansheegga <ArrowUpRight size={18} />
               </TransitionLink>
             </div>
+            <div className="document-snapshot"><div><span>Macmiilka</span><strong>{selected.customerSnapshot.name}</strong></div><div><span>Hadhaaga</span><strong>{formatMoney(selected.total-selected.paid, selected.currency)}</strong></div></div>
             <motion.div
+              className="document-stage"
               key={selected.id}
-              initial={{ opacity: 0, y: 4 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.22 }}
+              transition={{ duration: 0.28 }}
             >
               <Document
                 invoice={{ ...selected, businessSnapshot: data.settings }}

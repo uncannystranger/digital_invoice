@@ -1,5 +1,5 @@
 // Only the application shell is cached here. Business data remains in IndexedDB.
-const CACHE = "digital-invoice-shell-v3";
+const CACHE = "digital-invoice-shell-v4";
 const cacheable = (url) => url.origin === self.location.origin && url.pathname.startsWith("/assets/");
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
